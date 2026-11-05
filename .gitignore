@@ -1,0 +1,14 @@
+# Archivos objeto y ejecutables generados al compilar
+*.o
+*.obj
+*.exe
+a.out
+artemis_tli
+
+# Archivos generados por el programa
+reporte_mision.txt
+
+# Configuracion de editores
+.vscode/
+.idea/
+*.swp
