@@ -74,3 +74,105 @@ void pasoRK4(EstadoNave *e, double dist, double dt)
     e->v += (dt / 6.0) * (k1v + 2.0 * k2v + 2.0 * k3v + k4v);
     e->t += dt;
 }
+
+/*
+ * Agrega una muestra al vector dinamico. Si no hay lugar, duplica la capacidad
+ * con realloc. Devuelve 1 si pudo agregarla, 0 si no hay memoria.
+ * Recibe punteros al vector, a la cantidad y a la capacidad porque puede
+ * modificar los tres.
+ */
+static int agregarMuestra(Muestra **vec, int *n, int *capacidad,
+                          const EstadoNave *e, double r_mru, double dist)
+{
+    if (*n == *capacidad) {
+        int nueva_cap = (*capacidad) * 2;
+        Muestra *nuevo = (Muestra *)realloc(*vec, nueva_cap * sizeof(Muestra));
+        if (nuevo == NULL) return 0;          /* el vector viejo sigue siendo valido */
+        *vec = nuevo;
+        *capacidad = nueva_cap;
+    }
+    (*vec)[*n].t = e->t;
+    (*vec)[*n].r_mru = r_mru;
+    (*vec)[*n].r_grav = e->r;
+    (*vec)[*n].v_grav = e->v;
+    (*vec)[*n].a_grav = aceleracionNeta(e->r, dist);
+    (*n)++;
+    return 1;
+}
+
+/*
+ * Simula la trayectoria con motores apagados hasta que:
+ *  - la nave llega a la superficie lunar, o
+ *  - vuelve a pasar por la altura de la orbita baja (cae de vuelta), o
+ *  - se agota el tiempo maximo.
+ * En paralelo calcula la posicion que tendria sin gravedad (MRU, 1.a ley).
+ *
+ * Devuelve un vector de muestras reservado con malloc (la cantidad queda en
+ * res->n_muestras). QUIEN LLAMA DEBE LIBERARLO CON free(). Devuelve NULL si
+ * no hay memoria.
+ */
+Muestra *simularTrayectoria(const Parametros *p, ResultadoSimulacion *res)
+{
+    EstadoNave nave;
+    double r0 = radioInicial(p);
+    double r_limite_luna = p->dist - R_LUNA;
+    double proximo_muestreo = MUESTREO_SIM;
+    int n = 0;
+    int capacidad = CAPACIDAD_INICIAL;
+    Muestra *muestras = (Muestra *)malloc(capacidad * sizeof(Muestra));
+
+    res->n_muestras = 0;
+    if (muestras == NULL) return NULL;
+
+    nave.t = 0.0;
+    nave.r = r0;
+    nave.v = p->vtli;
+
+    res->r_max = r0;
+    res->t_r_max = 0.0;
+    if (!agregarMuestra(&muestras, &n, &capacidad, &nave, r0, p->dist)) {
+        free(muestras);
+        return NULL;
+    }
+
+    while (1) {
+        pasoRK4(&nave, p->dist, DT_SIM);
+
+        if (nave.r > res->r_max) {
+            res->r_max = nave.r;
+            res->t_r_max = nave.t;
+        }
+        if (nave.r >= r_limite_luna) {
+            res->desenlace = DESENLACE_LLEGA_LUNA;
+            break;
+        }
+        if (nave.r <= r0 && nave.v < 0.0) {
+            res->desenlace = DESENLACE_VUELVE_TIERRA;
+            break;
+        }
+        if (nave.t >= T_MAX_SIM) {
+            res->desenlace = DESENLACE_TIEMPO_AGOTADO;
+            break;
+        }
+        if (nave.t >= proximo_muestreo) {
+            if (!agregarMuestra(&muestras, &n, &capacidad, &nave, r0 + p->vtli * nave.t, p->dist)) {
+                free(muestras);
+                return NULL;
+            }
+            proximo_muestreo += MUESTREO_SIM;
+        }
+    }
+
+    /* La ultima muestra es el estado final */
+    if (nave.r > r_limite_luna) nave.r = r_limite_luna;
+    if (nave.r < r0) nave.r = r0;
+    if (!agregarMuestra(&muestras, &n, &capacidad, &nave, r0 + p->vtli * nave.t, p->dist)) {
+        free(muestras);
+        return NULL;
+    }
+
+    res->n_muestras = n;
+    res->t_final = nave.t;
+    res->v_final = nave.v;
+    return muestras;
+}
