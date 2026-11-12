@@ -202,6 +202,51 @@ void analizarEnergia(const Parametros *p, AnalisisEnergia *a)
     a->llega = (a->w_adicional <= 0.0);
 }
 
+/* Ecuacion de Tsiolkovsky despejada: combustible para lograr un dv */
+double combustibleNecesario(double masa_final, double dv, double ce)
+{
+    return masa_final * (exp(dv / ce) - 1.0);
+}
+
+/* Ecuacion de Tsiolkovsky: dv = ce * ln(m0 / mf) */
+double deltaVObtenido(double masa_final, double combustible, double ce)
+{
+    return ce * log((masa_final + combustible) / masa_final);
+}
+
+/*
+ * Inciso d: comparacion ida / vuelta.
+ * Ida: pasar de la velocidad circular en LEO a v_TLI.
+ * Vuelta: escapar desde una orbita lunar baja (100 km): v_esc - v_circ.
+ * Simplificacion: se usa el mismo motor (mismo Isp) en ambos encendidos para
+ * que la diferencia se deba solo a la profundidad de cada pozo.
+ */
+void analizarCombustible(const Parametros *p, AnalisisCombustible *c)
+{
+    double r0 = radioInicial(p);
+    double r_llo = R_LUNA + H_LLO;
+    double mu_t = G_UNIV * M_TIERRA;
+    double mu_l = G_UNIV * M_LUNA;
+
+    c->v_circ_leo = sqrt(mu_t / r0);
+    c->v_circ_llo = sqrt(mu_l / r_llo);
+    c->v_esc_llo = sqrt(2.0 * mu_l / r_llo);
+
+    c->dv_ida = p->vtli - c->v_circ_leo;
+    c->dv_vuelta = c->v_esc_llo - c->v_circ_llo;
+
+    c->e_ida = 0.5 * (p->vtli * p->vtli - c->v_circ_leo * c->v_circ_leo);
+    c->e_vuelta = 0.5 * (c->v_esc_llo * c->v_esc_llo - c->v_circ_llo * c->v_circ_llo);
+
+    c->pozo_tierra = mu_t / r0;
+    c->pozo_luna = mu_l / r_llo;
+
+    c->ce = p->isp * G0;
+    c->comb_ida_sola = combustibleNecesario(p->masa, c->dv_ida, c->ce);
+    c->comb_vuelta = combustibleNecesario(p->masa, c->dv_vuelta, c->ce);
+    c->comb_ida_total = combustibleNecesario(p->masa + c->comb_vuelta, c->dv_ida, c->ce);
+}
+
 /*
  * Recorre velocidades entre v_ini y v_fin y clasifica cada una:
  *   0 = no llega al punto neutro, 1 = llega a la Luna, 2 = supera el escape terrestre.
