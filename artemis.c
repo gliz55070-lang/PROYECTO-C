@@ -176,3 +176,57 @@ Muestra *simularTrayectoria(const Parametros *p, ResultadoSimulacion *res)
     res->v_final = nave.v;
     return muestras;
 }
+
+/* Inciso c: conservacion de la energia mecanica Em = K + U (por unidad de masa) */
+void analizarEnergia(const Parametros *p, AnalisisEnergia *a)
+{
+    double denom;
+    double mu_t = G_UNIV * M_TIERRA;
+
+    a->r0 = radioInicial(p);
+    a->xeq = puntoNeutro(p->dist);
+    a->u0 = potencialEspecifico(a->r0, p->dist);
+    a->ueq = potencialEspecifico(a->xeq, p->dist);
+    a->ec_esp = 0.5 * p->vtli * p->vtli;
+    a->em_inicial = a->ec_esp + a->u0;
+    a->delta_u = a->ueq - a->u0;
+    a->w_adicional = a->ueq - a->em_inicial;
+    a->v_min = sqrt(2.0 * a->delta_u);
+    a->v_escape = sqrt(2.0 * mu_t / a->r0);
+    a->v_circular = sqrt(mu_t / a->r0);
+
+    /* Apogeo si solo actuara la Tierra: v^2/2 - mu/r0 = -mu/r_apo */
+    denom = 1.0 / a->r0 - (p->vtli * p->vtli) / (2.0 * mu_t);
+    a->apogeo_tierra = (denom > 0.0) ? 1.0 / denom : -1.0;
+
+    a->llega = (a->w_adicional <= 0.0);
+}
+
+/*
+ * Recorre velocidades entre v_ini y v_fin y clasifica cada una:
+ *   0 = no llega al punto neutro, 1 = llega a la Luna, 2 = supera el escape terrestre.
+ * Devuelve la cantidad de valores cargados en los arreglos.
+ */
+int barridoVelocidades(const Parametros *p, double v_ini, double v_fin, double paso,
+                       double velocidades[], double trabajos[], int estados[], int max)
+{
+    int n = 0;
+    double v;
+    Parametros q = *p;
+    AnalisisEnergia a;
+
+    for (v = v_ini; v <= v_fin + 1e-9 && n < max; v += paso) {
+        q.vtli = v;
+        analizarEnergia(&q, &a);
+        velocidades[n] = v;
+        trabajos[n] = a.w_adicional;
+        if (!a.llega)
+            estados[n] = 0;
+        else if (v < a.v_escape)
+            estados[n] = 1;
+        else
+            estados[n] = 2;
+        n++;
+    }
+    return n;
+}
