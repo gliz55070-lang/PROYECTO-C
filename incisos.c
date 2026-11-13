@@ -68,6 +68,93 @@ void menuParametros(Parametros *p)
     } while (op != 0);
 }
 
+/* ======================= INCISO A ======================= */
+
+void incisoA(const Parametros *p, Reporte *rep)
+{
+    Muestra *muestras;            /* vector dinamico: lo reserva simularTrayectoria */
+    ResultadoSimulacion res;
+    char evento[TAM_EVENTO];
+    int i;
+    char resp;
+    double r0 = radioInicial(p);
+    double a0 = G_UNIV * M_TIERRA / (r0 * r0);
+
+    mostrarTitulo("INCISO a) 1.a LEY DE NEWTON: INERCIA CON MOTORES APAGADOS");
+    printf("  Al terminar la TLI la etapa ICPS se separa y los motores se apagan.\n");
+    printf("  Ya no hay EMPUJE. Por la 1.a ley (inercia), la nave seguiria en linea\n");
+    printf("  recta a velocidad constante si sobre ella no actuara ninguna fuerza.\n");
+    printf("  Pero la fuerza neta NO es cero: la Tierra la atrae con F = G*M*m/r^2,\n");
+    printf("  en sentido contrario al movimiento, y la va frenando. Como r crece,\n");
+    printf("  esa fuerza se achica: el frenado es cada vez mas suave.\n\n");
+
+    printf("  Pregunta: con los motores apagados, que mantiene a Orion en movimiento?\n");
+    printf("    a) Un empuje residual de los motores\n");
+    printf("    b) Nada: sigue moviendose por inercia; solo la gravedad cambia su velocidad\n");
+    printf("    c) La atraccion de la Luna, que la arrastra desde el principio\n");
+    resp = leerOpcion("  Tu respuesta (a/b/c): ", "abc");
+    if (resp == 'b') {
+        mostrarOk("Correcto. No hace falta una fuerza para mantener el movimiento: hace falta para cambiarlo. (+5 puntos)");
+        rep->puntos_a = PTS_MAX_A;
+    } else {
+        mostrarAviso("No. Sin fuerza neta un cuerpo conserva su velocidad (1.a ley). La gravedad es la que la cambia.");
+        rep->puntos_a = 0;
+    }
+
+    printf("\n  Aceleracion gravitatoria terrestre al inicio: a = G*MT/r0^2 = %.3f m/s^2\n", a0);
+    printf("  Simulando la trayectoria con Runge-Kutta 4 (paso de %.0f s)...\n\n", DT_SIM);
+
+    muestras = simularTrayectoria(p, &res);
+    if (muestras == NULL) {
+        mostrarError("No hay memoria suficiente para la simulacion.");
+        pausar();
+        return;
+    }
+
+    printf("  %8s | %14s | %14s | %10s | %12s\n",
+           "t [h]", "r sin grav[km]", "r con grav[km]", "v [m/s]", "a neta[m/s2]");
+    mostrarSeparador();
+    for (i = 0; i < res.n_muestras; i++) {
+        /* para no llenar la pantalla se muestra una fila cada 12 h, mas la primera y la ultima */
+        int hora = (int)(muestras[i].t / 3600.0 + 0.5);
+        if (i != 0 && i != res.n_muestras - 1 && hora % 12 != 0) continue;
+        printf("  %8.1f | %14.0f | %14.0f | %10.1f | %12.6f\n",
+               muestras[i].t / 3600.0, muestras[i].r_mru / 1000.0,
+               muestras[i].r_grav / 1000.0, muestras[i].v_grav, muestras[i].a_grav);
+    }
+    mostrarSeparador();
+
+    printf("  Distancia maxima alcanzada: %.0f km (a las %.1f h)\n", res.r_max / 1000.0, res.t_r_max / 3600.0);
+    switch (res.desenlace) {
+    case DESENLACE_LLEGA_LUNA:
+        mostrarOk("Orion cruza el punto neutro y llega a la Luna.");
+        break;
+    case DESENLACE_VUELVE_TIERRA:
+        mostrarAviso("Orion se frena antes del punto neutro, se detiene y vuelve a caer hacia la Tierra.");
+        break;
+    default:
+        mostrarAviso("Se agoto el tiempo de simulacion (20 dias).");
+        break;
+    }
+    printf("\n  Conclusion: sin gravedad (columna 2) la distancia crece siempre igual (MRU).\n");
+    printf("  Con gravedad la velocidad baja todo el tiempo, rapido cerca de la Tierra y\n");
+    printf("  cada vez mas lento lejos de ella, porque la fuerza disminuye con 1/r^2.\n");
+
+    printf("  (Se guardaron %d muestras en memoria dinamica: %lu bytes)\n",
+           res.n_muestras, (unsigned long)(res.n_muestras * sizeof(Muestra)));
+    free(muestras);               /* se libera el vector reservado con malloc/realloc */
+
+    rep->hecho_a = 1;
+    rep->desenlace_a = res.desenlace;
+    rep->r_max_a = res.r_max;
+    rep->p = *p;
+    snprintf(evento, sizeof evento, "Inciso a: v = %.1f m/s, distancia max. %.0f km, %s.",
+             p->vtli, res.r_max / 1000.0,
+             res.desenlace == DESENLACE_LLEGA_LUNA ? "llega a la Luna" : "vuelve a caer");
+    registrarEvento(&rep->bitacora, evento);
+    pausar();
+}
+
 /* ======================= INCISO B ======================= */
 
 /* Compara con tolerancia relativa */
