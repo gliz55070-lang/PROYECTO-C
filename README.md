@@ -13,7 +13,8 @@ Escenario asignado: **Situación-Problema 3: Inyección Translunar — TLI e ine
 | Lopez Tomas | Energía y barrido (`artemis.c`), inciso c y barrido (`incisos.c`), sección d del README |
 | Santillan Paula | Tsiolkovsky (`artemis.c`) y `mision.c`: inciso d, bitácora y reporte final |
 
-**Comisión:** _completar_
+**Comisión:** ISI K1.1
+
 
 ## b) Escenario y reglas del juego
 
