@@ -142,3 +142,140 @@ void incisoD(const Parametros *p, Reporte *rep)
     printf("\n  Puntaje del inciso d: %d de %d\n", rep->puntos_d, PTS_MAX_D);
     pausar();
 }
+
+/* ======================= BITACORA (lista enlazada) ======================= */
+
+/*
+ * Agrega un evento al final de la lista. Reserva el nodo con malloc.
+ * Devuelve 1 si pudo, 0 si no hay memoria (en ese caso solo se avisa).
+ */
+int registrarEvento(Bitacora *b, const char *texto)
+{
+    NodoEvento *nuevo = (NodoEvento *)malloc(sizeof(NodoEvento));
+    if (nuevo == NULL) {
+        mostrarAviso("No hay memoria para registrar el evento en la bitacora.");
+        return 0;
+    }
+    nuevo->numero = b->cantidad + 1;
+    strncpy(nuevo->texto, texto, TAM_EVENTO - 1);
+    nuevo->texto[TAM_EVENTO - 1] = '\0';
+    nuevo->sig = NULL;
+
+    if (b->cabeza == NULL)          /* lista vacia: el nodo es cabeza y cola */
+        b->cabeza = nuevo;
+    else
+        b->cola->sig = nuevo;       /* se engancha despues de la cola */
+    b->cola = nuevo;
+    b->cantidad++;
+    return 1;
+}
+
+/* Recorre la lista liberando cada nodo y la deja vacia */
+void liberarBitacora(Bitacora *b)
+{
+    NodoEvento *actual = b->cabeza;
+    NodoEvento *siguiente;
+    while (actual != NULL) {
+        siguiente = actual->sig;    /* se guarda antes de liberar */
+        free(actual);
+        actual = siguiente;
+    }
+    b->cabeza = NULL;
+    b->cola = NULL;
+    b->cantidad = 0;
+}
+
+/* ======================= REPORTE FINAL ======================= */
+
+static const char *textoDesenlace(Desenlace d)
+{
+    switch (d) {
+    case DESENLACE_LLEGA_LUNA: return "llega a la Luna";
+    case DESENLACE_VUELVE_TIERRA: return "se frena y vuelve a caer a la Tierra";
+    default: return "tiempo de simulacion agotado";
+    }
+}
+
+static const char *rango(int puntos)
+{
+    double f = (double)puntos / PTS_MAX_TOTAL;
+    if (f >= 0.9) return "Directora/Director de vuelo";
+    if (f >= 0.7) return "Ingeniera/o de trayectorias";
+    if (f >= 0.4) return "Controlador/a en entrenamiento";
+    return "Cadete espacial (a repasar!)";
+}
+
+/* Escribe el reporte en cualquier flujo: pantalla (stdout) o archivo */
+static void imprimirReporte(FILE *f, const Reporte *rep)
+{
+    int total = rep->puntos_a + rep->puntos_b + rep->puntos_c + rep->puntos_d;
+    const Parametros *p = &rep->p;
+
+    fprintf(f, "==================================================================\n");
+    fprintf(f, "  REPORTE FINAL DE DESEMPENIO - Situacion-Problema 3 (TLI)\n");
+    fprintf(f, "==================================================================\n");
+    fprintf(f, "  Datos usados: v_TLI = %.1f m/s | m = %.1f kg | h = %.0f m | D = %.0f m | Isp = %.0f s\n\n",
+            p->vtli, p->masa, p->hleo, p->dist, p->isp);
+
+    if (rep->hecho_a)
+        fprintf(f, "  a) Inercia: la nave %s (distancia max. %.0f km). Puntos %d/%d\n",
+                textoDesenlace(rep->desenlace_a), rep->r_max_a / 1000.0, rep->puntos_a, PTS_MAX_A);
+    else
+        fprintf(f, "  a) Pendiente\n");
+
+    if (rep->hecho_b)
+        fprintf(f, "  b) Energia cinetica: K = %.5e J = %.2f GJ (%d intento/s). Puntos %d/%d\n",
+                rep->k_b, rep->k_b / 1e9, rep->intentos_b, rep->puntos_b, PTS_MAX_B);
+    else
+        fprintf(f, "  b) Pendiente\n");
+
+    if (rep->hecho_c)
+        fprintf(f, "  c) Wext/m = %.2f kJ/kg -> %s. Puntos %d/%d\n",
+                rep->w_adicional_c / 1000.0,
+                rep->llega_c ? "no hace falta trabajo extra, llega" : "falta energia, no llega",
+                rep->puntos_c, PTS_MAX_C);
+    else
+        fprintf(f, "  c) Pendiente\n");
+
+    if (rep->hecho_d)
+        fprintf(f, "  d) Mision completa: ida %.0f kg + vuelta %.0f kg de combustible. Puntos %d/%d\n",
+                rep->comb_ida_d, rep->comb_vuelta_d, rep->puntos_d, PTS_MAX_D);
+    else
+        fprintf(f, "  d) Pendiente\n");
+
+    if (rep->hecho_barrido) {
+        if (rep->v_umbral_barrido > 0.0)
+            fprintf(f, "  Barrido: la primera velocidad que llega es %.1f m/s\n", rep->v_umbral_barrido);
+        else
+            fprintf(f, "  Barrido: ninguna velocidad del rango llega\n");
+    }
+
+    fprintf(f, "\n  Bitacora de la mision (%d evento/s):\n", rep->bitacora.cantidad);
+    if (rep->bitacora.cabeza == NULL) {
+        fprintf(f, "    (vacia)\n");
+    } else {
+        const NodoEvento *nodo;
+        for (nodo = rep->bitacora.cabeza; nodo != NULL; nodo = nodo->sig)
+            fprintf(f, "    %2d. %s\n", nodo->numero, nodo->texto);
+    }
+
+    fprintf(f, "\n  Entradas invalidas corregidas por el sistema: %d\n", erroresDeEntrada());
+    fprintf(f, "  PUNTAJE TOTAL: %d de %d  ->  Rango: %s\n", total, PTS_MAX_TOTAL, rango(total));
+    fprintf(f, "==================================================================\n");
+}
+
+void mostrarReporteFinal(const Reporte *rep)
+{
+    printf("\n");
+    imprimirReporte(stdout, rep);
+}
+
+/* Devuelve 1 si se pudo guardar, 0 si hubo un error al abrir el archivo */
+int guardarReporte(const Reporte *rep, const char *nombre_archivo)
+{
+    FILE *f = fopen(nombre_archivo, "w");
+    if (f == NULL) return 0;
+    imprimirReporte(f, rep);
+    fclose(f);
+    return 1;
+}
