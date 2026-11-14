@@ -146,4 +146,8 @@ Para depurar con `gdb`: `make debug` y después `gdb ./orion_tli`.
 
 ## e) Registro de uso de Inteligencia Artificial
 
-_En construcción._
+| Herramienta | Para qué se usó | Consulta / prompt | Cómo lo validamos y adaptamos |
+| Claude (Anthropic) | Revisar nuestra primera versión (página web en JavaScript) contra la consigna | "Según el trabajo integrador del Problema 3, ¿está bien esta página web?" | Nos señaló que la consigna pide C por consola y errores de física (llamar L₁ al punto neutro, la TLI la hace la ICPS, la nave del inciso a no volvía a caer) |
+| Claude (Anthropic) | Generar la estructura inicial en C (módulos, structs, validaciones, Makefile) | "Corregí lo que está mal y que cumpla con la consigna del trabajo integrador y la cátedra" | 
+Cada integrante leyó su módulo y lo explicó al grupo. Compilamos con make sin warnings y probamos el programa con los datos de la consigna, con letras, con valores fuera de rango y con 10.910 m/s para ver que llega a la Luna. Cambiamos los nombres de los integrantes y el reparto de módulos.
+**Video:** https://youtu.be/q7emPyEi-ws
