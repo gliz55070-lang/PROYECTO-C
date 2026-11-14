@@ -7,10 +7,10 @@ Escenario asignado: **Situación-Problema 3: Inyección Translunar — TLI e ine
 
 | Integrante | Módulo a cargo |
 |---|---|
-| Lopez Tomas | Estructura del repositorio, `artemis.h`, `validaciones.c/.h` y `main.c` |
+| Gonzalez Liz | Estructura del repositorio, `artemis.h`, `validaciones.c/.h` y `main.c` |
 | Roa Genaro | `artemis.c` (física, Runge-Kutta y memoria dinámica) e inciso a |
 | Hernandez Aisar | Datos de la misión e inciso b (`incisos.c`), secciones b, c y e del README |
-| Gonzalez Liz | Energía y barrido (`artemis.c`), inciso c y barrido (`incisos.c`), sección d del README |
+| Lopez Tomas | Energía y barrido (`artemis.c`), inciso c y barrido (`incisos.c`), sección d del README |
 | Santillan Paula | Tsiolkovsky (`artemis.c`) y `mision.c`: inciso d, bitácora y reporte final |
 
 **Comisión:** _completar_
@@ -103,7 +103,46 @@ en ambos encendidos, aunque en la misión real la TLI la hace la ICPS (RL10, Isp
 
 ## d) Compilación y ejecución
 
-_En construcción._
+Requiere `gcc` (en Windows: MinGW o el que trae Code::Blocks).
+
+**Linux / macOS / Windows con make:**
+```
+make
+./orion_tli
+```
+
+**Windows sin make** (MinGW o Code::Blocks), en la consola:
+```
+gcc -Wall -Wextra -std=c99 -o orion_tli.exe main.c artemis.c incisos.c mision.c validaciones.c -lm
+orion_tli.exe
+```
+
+Los números se pueden escribir como `10900`, `10.900`, `10900,5` o `10900.5`.
+
+Para depurar con `gdb`: `make debug` y después `gdb ./orion_tli`.
+
+### Verificación
+
+- Compila con `gcc -Wall -Wextra -std=c99 -pedantic` sin errores ni warnings.
+- Valgrind sobre una partida completa: `All heap blocks were freed -- no leaks are possible`, 0 errores.
+- Probado con entradas inválidas: letras, vacío, decimales en un entero, fuera de rango, líneas muy largas
+  y fin de entrada (Ctrl+Z / Ctrl+D).
+
+### Temas del material de la cátedra que usa el programa
+
+| Tema | Dónde |
+|---|---|
+| Estructuras condicionales (`if`, `switch`, `?:`) y repetitivas (`for`, `while`, `do-while`) | Todos los módulos |
+| Constantes `#define`, `const` y tipos enumerados (`enum`) | `artemis.h` |
+| Vectores estáticos y cadenas (`string.h`, `ctype.h`) | Barrido, `validaciones.c` |
+| Registros (`struct`) y `typedef` | `artemis.h` |
+| Funciones y paso de parámetros por valor y por referencia (punteros) | Todos los módulos |
+| Variables `static` y funciones `static` (visibles solo en su módulo) | `validaciones.c`, `artemis.c`, `mision.c` |
+| Memoria dinámica: `malloc`, `realloc`, `free` | `artemis.c` (vector de muestras), `mision.c` (lista) |
+| Lista enlazada con punteros a cabeza y cola | `mision.c` (bitácora) |
+| Ficheros de texto (`fopen`, `fprintf`, `fclose`) | `mision.c` (reporte) |
+| Biblioteca matemática (`math.h`, `-lm`) | `artemis.c` |
+| Compilación separada, `make` y `gdb` | `Makefile` |
 
 ## e) Registro de uso de Inteligencia Artificial
 
